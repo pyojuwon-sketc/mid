@@ -46,10 +46,27 @@ class NotepadApp:
         file_menu.add_separator()
         file_menu.add_command(label="끝내기(X)", command=self.exit_app)
 
+        # 편집 메뉴 생성
+        edit_menu = tk.Menu(self.menu_bar, tearoff=0)
+        self.menu_bar.add_cascade(label="편집(E)", menu=edit_menu)
+        edit_menu.add_command(label="실행 취소(U)", accelerator="Ctrl+Z", command=self.undo)
+        edit_menu.add_command(label="다시 실행(R)", accelerator="Ctrl+Y", command=self.redo)
+        edit_menu.add_separator()
+        edit_menu.add_command(label="잘라내기(T)", accelerator="Ctrl+X", command=self.cut)
+        edit_menu.add_command(label="복사(C)", accelerator="Ctrl+C", command=self.copy)
+        edit_menu.add_command(label="붙여넣기(P)", accelerator="Ctrl+V", command=self.paste)
+        edit_menu.add_command(label="삭제(L)", accelerator="Del", command=self.delete)
+        edit_menu.add_separator()
+        edit_menu.add_command(label="모두 선택(A)", accelerator="Ctrl+A", command=self.select_all)
+
         # 단축키 바인딩
         self.root.bind("<Control-n>", lambda event: self.new_file())
         self.root.bind("<Control-o>", lambda event: self.open_file())
         self.root.bind("<Control-s>", lambda event: self.save_file())
+        # Ctrl+A, Ctrl+Y 등은 ScrolledText 위젯이 자체적으로 처리하는 경우가 많지만,
+        # 메뉴와의 일관성을 위해 명시적으로 바인딩할 수 있습니다.
+        self.root.bind("<Control-a>", lambda event: self.select_all())
+        self.root.bind("<Control-y>", lambda event: self.redo())
         
         # 창을 닫을 때 확인 절차
         self.root.protocol("WM_DELETE_WINDOW", self.exit_app)
@@ -125,9 +142,55 @@ class NotepadApp:
     def exit_app(self):
         """애플리케이션을 종료합니다."""
         if self.get_content().strip():
-            if messagebox.askyesnocancel("종료", "변경 내용을 저장하시겠습니까?") is None:
+            response = messagebox.askyesnocancel("메모장", f"'{self.root.title()}'의 내용을 저장하시겠습니까?")
+            if response is True: # '예'를 선택한 경우
+                self.save_file()
+                # save_file에서 사용자가 취소할 수도 있으므로, 파일이 실제로 저장되었는지 확인
+                if self.current_file_path:
+                    self.root.destroy()
+            elif response is False: # '아니오'를 선택한 경우
+                self.root.destroy()
+            else: # '취소' 또는 창 닫기
                 return
-        self.root.destroy()
+        else:
+            self.root.destroy()
+
+    # --- 편집 기능 메서드 ---
+
+    def undo(self, event=None):
+        """실행을 취소합니다."""
+        self.text_area.edit_undo()
+        return "break"
+
+    def redo(self, event=None):
+        """다시 실행합니다."""
+        self.text_area.edit_redo()
+        return "break"
+
+    def cut(self, event=None):
+        """선택한 텍스트를 잘라냅니다."""
+        self.text_area.event_generate("<<Cut>>")
+        return "break"
+
+    def copy(self, event=None):
+        """선택한 텍스트를 복사합니다."""
+        self.text_area.event_generate("<<Copy>>")
+        return "break"
+
+    def paste(self, event=None):
+        """텍스트를 붙여넣습니다."""
+        self.text_area.event_generate("<<Paste>>")
+        return "break"
+
+    def delete(self, event=None):
+        """선택한 텍스트를 삭제합니다."""
+        self.text_area.event_generate("<<Clear>>")
+        return "break"
+
+    def select_all(self, event=None):
+        """모든 텍스트를 선택합니다."""
+        self.text_area.event_generate("<<SelectAll>>")
+        return "break"
 
 if __name__ == "__main__":
     # 1. 메인 윈도우(창) 생성
